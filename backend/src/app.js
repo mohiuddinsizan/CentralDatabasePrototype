@@ -13,21 +13,37 @@ import bookChapterQuestionRoutes from "./routes/bookChapterQuestionRoutes.js";
 
 const app = express();
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  ...(process.env.FRONTEND_URLS || "")
+    .split(",")
+    .map((url) => url.trim())
+    .filter(Boolean),
+];
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173", // dev frontend
-      process.env.FRONTEND_URL, // deployed frontend
-    ],
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
   })
 );
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 
 app.get("/", (req, res) => {
-  res.json({ message: "Central Question Database API running" });
+  res.json({
+    message: "Central Question Database API running",
+  });
 });
 
 app.use("/api/auth", authRoutes);
