@@ -155,6 +155,7 @@ const bookChapterSchema = new mongoose.Schema(
       default: [],
     },
 
+    // legacy support only; actual source of truth should be BookChapterQuestion
     selectedQuestions: [
       {
         type: mongoose.Schema.Types.ObjectId,

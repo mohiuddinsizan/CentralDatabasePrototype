@@ -12,6 +12,11 @@ const bookChapterQuestionSchema = new mongoose.Schema(
       ref: "BookChapter",
       required: true,
     },
+    topic: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "BookChapterTopic",
+      default: null,
+    },
     sourceQuestion: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Question",
@@ -34,6 +39,8 @@ bookChapterQuestionSchema.index(
   { bookChapter: 1, sourceQuestion: 1 },
   { unique: true }
 );
+
+bookChapterQuestionSchema.index({ bookChapter: 1, topic: 1, order: 1 });
 
 const BookChapterQuestion = mongoose.model(
   "BookChapterQuestion",

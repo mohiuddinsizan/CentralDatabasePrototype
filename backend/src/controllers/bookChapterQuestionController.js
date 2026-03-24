@@ -3,10 +3,60 @@ import Book from "../models/Book.js";
 import BookChapter from "../models/BookChapter.js";
 import Question from "../models/Question.js";
 import BookChapterQuestion from "../models/BookChapterQuestion.js";
+import BookChapterTopic from "../models/BookChapterTopic.js";
 import asyncHandler from "../utils/asyncHandler.js";
 
+const ensureDefaultTopic = async (bookChapter, adminId) => {
+  let defaultTopic = await BookChapterTopic.findOne({
+    bookChapter: bookChapter._id,
+    isDefault: true,
+  });
+
+  if (!defaultTopic) {
+    defaultTopic = await BookChapterTopic.create({
+      book: bookChapter.book,
+      bookChapter: bookChapter._id,
+      name: "Default",
+      order: 0,
+      isDefault: true,
+      createdBy: adminId,
+    });
+  }
+
+  return defaultTopic;
+};
+
+const resolveTopic = async (chapter, topicId, adminId) => {
+  if (!topicId) {
+    return ensureDefaultTopic(chapter, adminId);
+  }
+
+  if (topicId === "default") {
+    return ensureDefaultTopic(chapter, adminId);
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(topicId)) {
+    const err = new Error("Valid topicId is required");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const topic = await BookChapterTopic.findOne({
+    _id: topicId,
+    bookChapter: chapter._id,
+  });
+
+  if (!topic) {
+    const err = new Error("Topic not found in this chapter");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  return topic;
+};
+
 export const getBookChapterQuestions = asyncHandler(async (req, res) => {
-  const { chapterId } = req.query;
+  const { chapterId, topicId } = req.query;
 
   if (!chapterId || !mongoose.Types.ObjectId.isValid(chapterId)) {
     res.status(400);
@@ -19,7 +69,16 @@ export const getBookChapterQuestions = asyncHandler(async (req, res) => {
     throw new Error("Book chapter not found");
   }
 
-  const items = await BookChapterQuestion.find({ bookChapter: chapterId })
+  const topic = await resolveTopic(chapter, topicId, req.admin._id);
+
+  const items = await BookChapterQuestion.find({
+    bookChapter: chapterId,
+    topic: topic._id,
+  })
+    .populate({
+      path: "topic",
+      select: "name isDefault order",
+    })
     .populate({
       path: "sourceQuestion",
       populate: [
@@ -35,7 +94,7 @@ export const getBookChapterQuestions = asyncHandler(async (req, res) => {
 });
 
 export const replaceBookChapterQuestions = asyncHandler(async (req, res) => {
-  const { chapterId, sourceQuestionIds } = req.body;
+  const { chapterId, topicId, sourceQuestionIds } = req.body;
 
   if (!chapterId || !mongoose.Types.ObjectId.isValid(chapterId)) {
     res.status(400);
@@ -64,6 +123,8 @@ export const replaceBookChapterQuestions = asyncHandler(async (req, res) => {
     throw new Error("selectedQuestions is not enabled for this book");
   }
 
+  const topic = await resolveTopic(chapter, topicId, req.admin._id);
+
   const validIds = sourceQuestionIds.filter((id) =>
     mongoose.Types.ObjectId.isValid(id)
   );
@@ -74,23 +135,48 @@ export const replaceBookChapterQuestions = asyncHandler(async (req, res) => {
 
   const foundIdSet = new Set(foundQuestions.map((q) => String(q._id)));
 
-  await BookChapterQuestion.deleteMany({ bookChapter: chapterId });
+  const cleanIds = validIds.filter((id) => foundIdSet.has(String(id)));
 
-  const docs = validIds
-    .filter((id) => foundIdSet.has(String(id)))
-    .map((id, index) => ({
-      book: book._id,
-      bookChapter: chapter._id,
-      sourceQuestion: id,
-      order: index + 1,
-      createdBy: req.admin._id,
-    }));
+  await BookChapterQuestion.deleteMany({
+    bookChapter: chapterId,
+    topic: topic._id,
+    sourceQuestion: { $nin: cleanIds },
+  });
 
-  if (docs.length > 0) {
-    await BookChapterQuestion.insertMany(docs);
+  for (let index = 0; index < cleanIds.length; index += 1) {
+    const id = cleanIds[index];
+
+    await BookChapterQuestion.findOneAndUpdate(
+      {
+        bookChapter: chapter._id,
+        sourceQuestion: id,
+      },
+      {
+        $set: {
+          book: book._id,
+          bookChapter: chapter._id,
+          topic: topic._id,
+          sourceQuestion: id,
+          order: index + 1,
+          createdBy: req.admin._id,
+        },
+      },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+      }
+    );
   }
 
-  const items = await BookChapterQuestion.find({ bookChapter: chapterId })
+  const items = await BookChapterQuestion.find({
+    bookChapter: chapterId,
+    topic: topic._id,
+  })
+    .populate({
+      path: "topic",
+      select: "name isDefault order",
+    })
     .populate({
       path: "sourceQuestion",
       populate: [

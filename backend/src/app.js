@@ -10,11 +10,12 @@ import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
 import bookRoutes from "./routes/bookRoutes.js";
 import bookChapterRoutes from "./routes/bookChapterRoutes.js";
 import bookChapterQuestionRoutes from "./routes/bookChapterQuestionRoutes.js";
+import bookChapterTopicRoutes from "./routes/bookChapterTopicRoutes.js";
 
 const app = express();
 
 const allowedOrigins = [
-  "http://localhost:5173",
+  "http://localhost:5174",
   ...(process.env.FRONTEND_URLS || "")
     .split(",")
     .map((url) => url.trim())
@@ -53,6 +54,7 @@ app.use("/api/questions", questionRoutes);
 app.use("/api/books", bookRoutes);
 app.use("/api/book-chapters", bookChapterRoutes);
 app.use("/api/book-chapter-questions", bookChapterQuestionRoutes);
+app.use("/api/book-chapter-topics", bookChapterTopicRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
