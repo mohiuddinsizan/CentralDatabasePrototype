@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { FIXED_TAGS } from "../constants/tags.js";
+
 
 const mcqOptionSchema = new mongoose.Schema(
   {
@@ -65,7 +65,7 @@ const questionSchema = new mongoose.Schema(
     tags: [
       {
         type: String,
-        enum: FIXED_TAGS,
+        trim: true,
       },
     ],
 
