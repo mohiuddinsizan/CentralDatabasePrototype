@@ -2,14 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import api from "../../api/axios";
 import Button from "../ui/Button";
-import Card from "../ui/Card";
 import Input from "../ui/Input";
 import MultiSelectTags from "../ui/MultiSelectTags";
 import Select from "../ui/Select";
 import Textarea from "../ui/Textarea";
 import { getQuestionDefaults, setQuestionDefaults } from "../../utils/storage";
 
-/* ─── constants ─────────────────────────────────────────────────────────── */
 const BANGLA_MCQ_KEYS = ["ক", "খ", "গ", "ঘ", "ঙ", "চ", "ছ", "জ", "ঝ", "ঞ"];
 const BANGLA_CQ_LABELS = ["ক", "খ", "গ", "ঘ", "ঙ", "চ", "ছ", "জ", "ঝ", "ঞ"];
 
@@ -27,9 +25,6 @@ const makeCqParts = (count) =>
     answer: "",
   }));
 
-/* ─── sub-components ─────────────────────────────────────────────────────── */
-
-/** Labelled section wrapper with a left-accent line */
 function Section({ title, icon, children }) {
   return (
     <div style={styles.section}>
@@ -42,7 +37,6 @@ function Section({ title, icon, children }) {
   );
 }
 
-/** Inline number stepper */
 function Stepper({ label, value, min = 1, onChange }) {
   return (
     <div style={styles.stepperWrap}>
@@ -68,7 +62,6 @@ function Stepper({ label, value, min = 1, onChange }) {
   );
 }
 
-/** Pill-style radio for stem toggle */
 function PillRadio({ name, checked, onChange, children }) {
   return (
     <label style={{ ...styles.pill, ...(checked ? styles.pillActive : {}) }}>
@@ -84,7 +77,6 @@ function PillRadio({ name, checked, onChange, children }) {
   );
 }
 
-/* ─── main component ─────────────────────────────────────────────────────── */
 export default function QuestionForm({
   mode = "create",
   initialData = null,
@@ -111,31 +103,33 @@ export default function QuestionForm({
     cqParts: makeCqParts(defaults.defaultCqPartCount || 2),
   });
 
-  /* load remote data */
   useEffect(() => {
     const load = async () => {
       try {
         const [archivesRes, chaptersRes, tagsRes] = await Promise.all([
           api.get("/archives"),
           api.get("/chapters"),
-          api.get("/questions/tags"),
+          api.get("/tags"),
         ]);
+
         setArchives(archivesRes.data);
         setChapters(chaptersRes.data);
-        setTags(tagsRes.data);
+        setTags(tagsRes.data.map((tag) => tag.name));
       } catch (err) {
         toast.error("ফর্মের ডাটা লোড করা যায়নি");
         console.error(err);
       }
     };
+
     load();
   }, []);
 
-  /* populate from initialData in edit mode */
   useEffect(() => {
     if (!initialData) return;
+
     const archiveId = initialData.archive?._id || initialData.archive || "";
     const chapterId = initialData.chapter?._id || initialData.chapter || "";
+
     setForm({
       archiveId,
       chapterId,
@@ -183,14 +177,28 @@ export default function QuestionForm({
 
   const updateMcqCount = (n) => {
     const count = Math.max(2, n);
-    setForm((prev) => ({ ...prev, defaultMcqOptionCount: count, mcqOptions: makeMcqOptions(count) }));
-    setQuestionDefaults({ ...getQuestionDefaults(), defaultMcqOptionCount: count });
+    setForm((prev) => ({
+      ...prev,
+      defaultMcqOptionCount: count,
+      mcqOptions: makeMcqOptions(count),
+    }));
+    setQuestionDefaults({
+      ...getQuestionDefaults(),
+      defaultMcqOptionCount: count,
+    });
   };
 
   const updateCqCount = (n) => {
     const count = Math.max(1, n);
-    setForm((prev) => ({ ...prev, defaultCqPartCount: count, cqParts: makeCqParts(count) }));
-    setQuestionDefaults({ ...getQuestionDefaults(), defaultCqPartCount: count });
+    setForm((prev) => ({
+      ...prev,
+      defaultCqPartCount: count,
+      cqParts: makeCqParts(count),
+    }));
+    setQuestionDefaults({
+      ...getQuestionDefaults(),
+      defaultCqPartCount: count,
+    });
   };
 
   const isSubmitDisabled =
@@ -199,25 +207,38 @@ export default function QuestionForm({
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!form.archiveId) { toast.error("আর্কাইভ সিলেক্ট করুন"); return; }
-    if (!form.chapterId) { toast.error("চ্যাপ্টার সিলেক্ট করুন"); return; }
-    if (!form.title.trim()) { toast.error("প্রশ্ন লিখুন"); return; }
+    if (!form.archiveId) {
+      toast.error("আর্কাইভ সিলেক্ট করুন");
+      return;
+    }
+    if (!form.chapterId) {
+      toast.error("চ্যাপ্টার সিলেক্ট করুন");
+      return;
+    }
+    if (!form.title.trim()) {
+      toast.error("প্রশ্ন লিখুন");
+      return;
+    }
 
     if (form.type === "MCQ") {
       if (form.mcqOptions.some((opt) => !opt.text.trim())) {
-        toast.error("সবগুলো অপশন পূরণ করতে হবে"); return;
+        toast.error("সবগুলো অপশন পূরণ করতে হবে");
+        return;
       }
       if (form.mcqOptions.filter((opt) => opt.isCorrect).length < 1) {
-        toast.error("কমপক্ষে একটি সঠিক উত্তর নির্বাচন করুন"); return;
+        toast.error("কমপক্ষে একটি সঠিক উত্তর নির্বাচন করুন");
+        return;
       }
     }
 
     if (form.type === "CQ") {
       if (form.hasStem && !form.stem.trim()) {
-        toast.error("উদ্দীপক লিখুন অথবা 'না' নির্বাচন করুন"); return;
+        toast.error("উদ্দীপক লিখুন অথবা 'না' নির্বাচন করুন");
+        return;
       }
       if (form.cqParts.some((part) => !part.question.trim())) {
-        toast.error("প্রতিটি অংশে প্রশ্ন লিখতে হবে"); return;
+        toast.error("প্রতিটি অংশে প্রশ্ন লিখতে হবে");
+        return;
       }
     }
 
@@ -231,11 +252,19 @@ export default function QuestionForm({
       tags: form.tags,
       mcqOptions:
         form.type === "MCQ"
-          ? form.mcqOptions.map((opt) => ({ key: opt.key, text: opt.text.trim(), isCorrect: !!opt.isCorrect }))
+          ? form.mcqOptions.map((opt) => ({
+              key: opt.key,
+              text: opt.text.trim(),
+              isCorrect: !!opt.isCorrect,
+            }))
           : [],
       cqParts:
         form.type === "CQ"
-          ? form.cqParts.map((part) => ({ label: part.label, question: part.question.trim(), answer: part.answer.trim() }))
+          ? form.cqParts.map((part) => ({
+              label: part.label,
+              question: part.question.trim(),
+              answer: part.answer.trim(),
+            }))
           : [],
       settingsSnapshot: {
         defaultMcqOptionCount: form.defaultMcqOptionCount,
@@ -245,6 +274,7 @@ export default function QuestionForm({
 
     try {
       setSaving(true);
+
       if (mode === "edit" && initialData?._id) {
         await api.put(`/questions/${initialData._id}`, payload);
         toast.success("প্রশ্ন আপডেট হয়েছে");
@@ -252,7 +282,9 @@ export default function QuestionForm({
         await api.post("/questions", payload);
         toast.success("প্রশ্ন সেভ হয়েছে");
       }
+
       onSuccess?.();
+
       if (mode === "create") {
         setForm((prev) => ({
           ...prev,
@@ -273,14 +305,11 @@ export default function QuestionForm({
     }
   };
 
-  /* ─── render ─────────────────────────────────────────────────────────── */
   return (
     <>
       <style>{css}</style>
 
       <form style={styles.form} onSubmit={handleSubmit}>
-
-        {/* ── Row 1: Archive + Chapter ─────────────────────────────────── */}
         <Section title="শ্রেণীবিন্যাস" icon="📂">
           <div style={styles.grid2}>
             <div style={styles.field}>
@@ -288,7 +317,11 @@ export default function QuestionForm({
               <Select
                 value={form.archiveId}
                 onChange={(e) =>
-                  setForm((prev) => ({ ...prev, archiveId: e.target.value, chapterId: "" }))
+                  setForm((prev) => ({
+                    ...prev,
+                    archiveId: e.target.value,
+                    chapterId: "",
+                  }))
                 }
               >
                 <option value="">আর্কাইভ নির্বাচন করুন</option>
@@ -304,25 +337,28 @@ export default function QuestionForm({
               <label style={styles.label}>চ্যাপ্টার</label>
               <Select
                 value={form.chapterId}
-                onChange={(e) => setForm((prev) => ({ ...prev, chapterId: e.target.value }))}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, chapterId: e.target.value }))
+                }
                 disabled={!form.archiveId}
               >
                 <option value="">
-                  {!form.archiveId ? "আগে আর্কাইভ নির্বাচন করুন" : "চ্যাপ্টার নির্বাচন করুন"}
+                  {!form.archiveId
+                    ? "আগে আর্কাইভ নির্বাচন করুন"
+                    : "চ্যাপ্টার নির্বাচন করুন"}
                 </option>
                 {filteredChapters.map((ch) => (
-                  <option key={ch._id} value={ch._id}>{ch.name}</option>
+                  <option key={ch._id} value={ch._id}>
+                    {ch.name}
+                  </option>
                 ))}
               </Select>
             </div>
           </div>
         </Section>
 
-        {/* ── Row 2: Type + Counts ─────────────────────────────────────── */}
         <Section title="প্রশ্নের ধরন ও কনফিগারেশন" icon="⚙️">
           <div style={styles.configRow}>
-
-            {/* Type toggle */}
             <div style={styles.field}>
               <label style={styles.label}>প্রশ্নের ধরন</label>
               <div style={styles.typeToggle}>
@@ -335,7 +371,12 @@ export default function QuestionForm({
                       ...(form.type === t ? styles.typeBtnActive : {}),
                     }}
                     onClick={() =>
-                      setForm((prev) => ({ ...prev, type: t, stem: "", hasStem: false }))
+                      setForm((prev) => ({
+                        ...prev,
+                        type: t,
+                        stem: "",
+                        hasStem: false,
+                      }))
                     }
                   >
                     {t}
@@ -344,7 +385,6 @@ export default function QuestionForm({
               </div>
             </div>
 
-            {/* Steppers */}
             <Stepper
               label="MCQ অপশন"
               value={form.defaultMcqOptionCount}
@@ -360,7 +400,6 @@ export default function QuestionForm({
           </div>
         </Section>
 
-        {/* ── Row 3: Main question text ────────────────────────────────── */}
         <Section title={form.type === "MCQ" ? "প্রশ্ন" : "মূল প্রশ্ন / শিরোনাম"} icon="✏️">
           <Textarea
             value={form.title}
@@ -369,7 +408,6 @@ export default function QuestionForm({
           />
         </Section>
 
-        {/* ── MCQ Options ──────────────────────────────────────────────── */}
         {form.type === "MCQ" && (
           <Section title="MCQ অপশনসমূহ" icon="☑️">
             <div style={styles.optionList}>
@@ -381,15 +419,15 @@ export default function QuestionForm({
                     ...(option.isCorrect ? styles.optionRowCorrect : {}),
                   }}
                 >
-                  {/* Badge */}
-                  <div style={{
-                    ...styles.badge,
-                    ...(option.isCorrect ? styles.badgeCorrect : {}),
-                  }}>
+                  <div
+                    style={{
+                      ...styles.badge,
+                      ...(option.isCorrect ? styles.badgeCorrect : {}),
+                    }}
+                  >
                     {option.key}
                   </div>
 
-                  {/* Text input */}
                   <div style={{ flex: 1 }}>
                     <Input
                       value={option.text}
@@ -402,7 +440,6 @@ export default function QuestionForm({
                     />
                   </div>
 
-                  {/* Correct toggle */}
                   <label style={styles.correctLabel}>
                     <input
                       type="checkbox"
@@ -414,10 +451,12 @@ export default function QuestionForm({
                         setForm((prev) => ({ ...prev, mcqOptions: next }));
                       }}
                     />
-                    <span style={{
-                      ...styles.correctPill,
-                      ...(option.isCorrect ? styles.correctPillOn : {}),
-                    }}>
+                    <span
+                      style={{
+                        ...styles.correctPill,
+                        ...(option.isCorrect ? styles.correctPillOn : {}),
+                      }}
+                    >
                       {option.isCorrect ? "✓ সঠিক" : "সঠিক?"}
                     </span>
                   </label>
@@ -427,10 +466,8 @@ export default function QuestionForm({
           </Section>
         )}
 
-        {/* ── CQ ───────────────────────────────────────────────────────── */}
         {form.type === "CQ" && (
           <>
-            {/* Stem */}
             <Section title="উদ্দীপক" icon="📄">
               <div style={styles.pillGroup}>
                 <PillRadio
@@ -443,7 +480,9 @@ export default function QuestionForm({
                 <PillRadio
                   name="hasStem"
                   checked={form.hasStem === false}
-                  onChange={() => setForm((prev) => ({ ...prev, hasStem: false, stem: "" }))}
+                  onChange={() =>
+                    setForm((prev) => ({ ...prev, hasStem: false, stem: "" }))
+                  }
                 >
                   উদ্দীপক নেই
                 </PillRadio>
@@ -460,7 +499,6 @@ export default function QuestionForm({
               )}
             </Section>
 
-            {/* CQ Parts */}
             <Section title="CQ অংশসমূহ" icon="📝">
               <div style={styles.cqList}>
                 {form.cqParts.map((part, idx) => (
@@ -503,7 +541,6 @@ export default function QuestionForm({
           </>
         )}
 
-        {/* ── Explanation ──────────────────────────────────────────────── */}
         <Section title="ব্যাখ্যা" icon="💡">
           <Textarea
             value={form.explanation}
@@ -512,7 +549,6 @@ export default function QuestionForm({
           />
         </Section>
 
-        {/* ── Tags ─────────────────────────────────────────────────────── */}
         <Section title="ট্যাগ" icon="🏷️">
           <MultiSelectTags
             tags={tags}
@@ -521,7 +557,6 @@ export default function QuestionForm({
           />
         </Section>
 
-        {/* ── Submit ───────────────────────────────────────────────────── */}
         <div style={styles.footer}>
           <div style={styles.footerMeta}>
             {isSubmitDisabled && !saving && (
@@ -532,8 +567,12 @@ export default function QuestionForm({
           </div>
           <Button type="submit" disabled={isSubmitDisabled}>
             {saving
-              ? mode === "edit" ? "আপডেট হচ্ছে…" : "সেভ হচ্ছে…"
-              : mode === "edit" ? "প্রশ্ন আপডেট করুন" : "প্রশ্ন সেভ করুন"}
+              ? mode === "edit"
+                ? "আপডেট হচ্ছে…"
+                : "সেভ হচ্ছে…"
+              : mode === "edit"
+              ? "প্রশ্ন আপডেট করুন"
+              : "প্রশ্ন সেভ করুন"}
           </Button>
         </div>
       </form>
@@ -541,11 +580,9 @@ export default function QuestionForm({
   );
 }
 
-/* ─── styles ─────────────────────────────────────────────────────────────── */
 const T = {
   bg: "#0d1117",
   surface: "#161b22",
-  surfaceHover: "#1c2230",
   border: "rgba(255,255,255,0.08)",
   borderAccent: "rgba(56,189,248,0.4)",
   accent: "#38bdf8",
@@ -565,8 +602,6 @@ const styles = {
     fontFamily: "'Hind Siliguri', 'Noto Sans Bengali', sans-serif",
     color: T.text,
   },
-
-  /* section */
   section: {
     background: T.surface,
     border: `1px solid ${T.border}`,
@@ -589,8 +624,6 @@ const styles = {
     textTransform: "uppercase",
     color: T.label,
   },
-
-  /* grids / rows */
   grid2: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
@@ -605,8 +638,6 @@ const styles = {
     padding: 20,
   },
   field: { display: "flex", flexDirection: "column", gap: 8, minWidth: 160 },
-
-  /* labels */
   label: { fontSize: 12, fontWeight: 600, color: T.label, letterSpacing: "0.04em" },
   subLabel: {
     display: "block",
@@ -616,8 +647,6 @@ const styles = {
     letterSpacing: "0.04em",
     marginBottom: 6,
   },
-
-  /* type toggle */
   typeToggle: {
     display: "flex",
     background: "rgba(0,0,0,0.3)",
@@ -635,15 +664,12 @@ const styles = {
     background: "transparent",
     color: T.muted,
     cursor: "pointer",
-    transition: "all 0.18s",
   },
   typeBtnActive: {
     background: T.accent,
     color: "#0d1117",
     boxShadow: `0 0 16px ${T.accentGlow}`,
   },
-
-  /* stepper */
   stepperWrap: {
     display: "flex",
     flexDirection: "column",
@@ -654,7 +680,6 @@ const styles = {
   stepperControl: {
     display: "flex",
     alignItems: "center",
-    gap: 0,
     background: "rgba(0,0,0,0.3)",
     border: `1px solid ${T.border}`,
     borderRadius: 8,
@@ -669,10 +694,6 @@ const styles = {
     color: T.accent,
     fontSize: 18,
     cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    transition: "background 0.15s",
   },
   stepValue: {
     minWidth: 36,
@@ -684,8 +705,6 @@ const styles = {
     borderRight: `1px solid ${T.border}`,
     lineHeight: "36px",
   },
-
-  /* MCQ option list */
   optionList: {
     display: "flex",
     flexDirection: "column",
@@ -700,7 +719,6 @@ const styles = {
     background: "rgba(0,0,0,0.2)",
     border: `1px solid ${T.border}`,
     borderRadius: 10,
-    transition: "border-color 0.2s, background 0.2s",
   },
   optionRowCorrect: {
     borderColor: "rgba(34,197,94,0.4)",
@@ -719,7 +737,6 @@ const styles = {
     fontWeight: 700,
     color: T.muted,
     flexShrink: 0,
-    transition: "all 0.2s",
   },
   badgeCorrect: {
     background: T.successGlow,
@@ -736,7 +753,6 @@ const styles = {
     background: "rgba(255,255,255,0.05)",
     border: `1px solid ${T.border}`,
     color: T.muted,
-    transition: "all 0.2s",
     userSelect: "none",
     whiteSpace: "nowrap",
   },
@@ -745,8 +761,6 @@ const styles = {
     borderColor: "rgba(34,197,94,0.5)",
     color: T.success,
   },
-
-  /* stem pill radios */
   pillGroup: { display: "flex", gap: 10, padding: "16px 20px 0" },
   pill: {
     display: "inline-flex",
@@ -759,7 +773,6 @@ const styles = {
     background: "rgba(255,255,255,0.04)",
     color: T.muted,
     cursor: "pointer",
-    transition: "all 0.18s",
     userSelect: "none",
   },
   pillActive: {
@@ -767,8 +780,6 @@ const styles = {
     borderColor: T.borderAccent,
     color: T.accent,
   },
-
-  /* CQ */
   cqList: { display: "flex", flexDirection: "column", gap: 16, padding: 20 },
   cqCard: {
     background: "rgba(0,0,0,0.2)",
@@ -800,8 +811,6 @@ const styles = {
   },
   cqCardTitle: { fontSize: 13, fontWeight: 600, color: T.label },
   cqFields: { display: "flex", flexDirection: "column", gap: 14, padding: 16 },
-
-  /* footer */
   footer: {
     display: "flex",
     justifyContent: "space-between",
@@ -812,13 +821,6 @@ const styles = {
   footerHint: { fontSize: 12, color: T.muted },
 };
 
-/* ─── global css (font import + stepper hover) ───────────────────────────── */
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
-
-  /* Stepper button hover */
-  button[data-step]:hover { background: rgba(56,189,248,0.1) !important; }
-
-  /* Section content padding for direct children of section that aren't header */
-  .qf-section-body { padding: 20px; }
 `;

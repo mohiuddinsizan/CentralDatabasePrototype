@@ -3,6 +3,7 @@ import {
   FolderKanban,
   LayoutDashboard,
   PlusSquare,
+  Tags,
   X,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
@@ -12,6 +13,7 @@ const links = [
   { to: "/archives", label: "Archives", icon: FolderKanban },
   { to: "/questions", label: "Questions", icon: Database },
   { to: "/questions/upload", label: "Upload Question", icon: PlusSquare },
+  { to: "/tags", label: "Manage Tags", icon: Tags },
 ];
 
 export default function Sidebar({ mobileOpen, setMobileOpen }) {
@@ -43,6 +45,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
           </div>
 
           <button
+            type="button"
             className="rounded-xl p-2 text-slate-300 hover:bg-white/10 lg:hidden"
             onClick={() => setMobileOpen(false)}
           >

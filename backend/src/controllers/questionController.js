@@ -2,8 +2,8 @@ import mongoose from "mongoose";
 import Question from "../models/Question.js";
 import Archive from "../models/Archive.js";
 import Chapter from "../models/Chapter.js";
+import Tag from "../models/Tag.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { FIXED_TAGS } from "../constants/tags.js";
 
 const BANGLA_MCQ_KEYS = ["ক", "খ", "গ", "ঘ", "ঙ", "চ", "ছ", "জ", "ঝ", "ঞ"];
 const BANGLA_CQ_LABELS = ["ক", "খ", "গ", "ঘ", "ঙ", "চ", "ছ", "জ", "ঝ", "ঞ"];
@@ -53,6 +53,11 @@ const validateArchiveAndChapter = async (archiveId, chapterId) => {
   }
 };
 
+const getAllowedTagNames = async () => {
+  const tagDocs = await Tag.find({}, "name").sort({ name: 1 });
+  return tagDocs.map((tag) => tag.name);
+};
+
 export const createQuestion = asyncHandler(async (req, res) => {
   const {
     archiveId,
@@ -80,8 +85,9 @@ export const createQuestion = asyncHandler(async (req, res) => {
 
   await validateArchiveAndChapter(archiveId, chapterId);
 
+  const allowedTagNames = await getAllowedTagNames();
   const safeTags = Array.isArray(tags)
-    ? tags.filter((tag) => FIXED_TAGS.includes(tag))
+    ? tags.filter((tag) => allowedTagNames.includes(tag))
     : [];
 
   let finalMcqOptions = [];
@@ -146,7 +152,7 @@ export const createQuestion = asyncHandler(async (req, res) => {
       defaultMcqOptionCount: settingsSnapshot?.defaultMcqOptionCount || 4,
       defaultCqPartCount: settingsSnapshot?.defaultCqPartCount || 1,
     },
-    createdBy: req.admin._id,
+    createdBy: req.admin?._id,
   });
 
   const populated = await Question.findById(question._id)
@@ -238,7 +244,8 @@ export const updateQuestion = asyncHandler(async (req, res) => {
   }
 
   if (Array.isArray(tags)) {
-    question.tags = tags.filter((tag) => FIXED_TAGS.includes(tag));
+    const allowedTagNames = await getAllowedTagNames();
+    question.tags = tags.filter((tag) => allowedTagNames.includes(tag));
   }
 
   if (nextType === "MCQ") {
@@ -340,5 +347,6 @@ export const deleteQuestion = asyncHandler(async (req, res) => {
 });
 
 export const getAvailableTags = asyncHandler(async (req, res) => {
-  res.json(FIXED_TAGS);
+  const tags = await Tag.find().sort({ name: 1 });
+  res.json(tags.map((tag) => tag.name));
 });

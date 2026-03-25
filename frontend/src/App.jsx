@@ -7,6 +7,7 @@ import ArchivesPage from "./pages/ArchivesPage";
 import QuestionsPage from "./pages/QuestionsPage";
 import QuestionUploadPage from "./pages/QuestionUploadPage";
 import ChapterQuestionsPage from "./pages/ChapterQuestionsPage";
+import TagsPage from "./pages/TagsPage"
 
 export default function App() {
   return (
@@ -29,6 +30,8 @@ export default function App() {
         />
         <Route path="questions" element={<QuestionsPage />} />
         <Route path="questions/upload" element={<QuestionUploadPage />} />
+        <Route path="/tags" element={<TagsPage />} />
+
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
